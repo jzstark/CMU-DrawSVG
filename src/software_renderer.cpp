@@ -244,6 +244,47 @@ void SoftwareRendererImp::rasterize_line( float x0, float y0,
 
   // Task 2: 
   // Implement line rasterization
+
+  // Convert the start and end points to integer pixel coordinates
+  int x_start = (int) floor(x0);
+  int y_start = (int) floor(y0);
+  int x_end = (int) floor(x1);
+  int y_end = (int) floor(y1);
+
+  // Calculate the differences and the step direction
+  int dx = abs(x_end - x_start);
+  int dy = abs(y_end - y_start);
+  int sx = (x_start < x_end) ? 1 : -1;  // Step in x-direction
+  int sy = (y_start < y_end) ? 1 : -1;  // Step in y-direction
+
+  // Error variable
+  int err = dx - dy;
+
+  // Bresenham's loop
+  while (true) {
+    // Rasterize the current pixel
+    rasterize_point(x_start, y_start, color);
+
+    // Break if the endpoint is reached
+    if (x_start == x_end && y_start == y_end) break;
+
+    // Update error and pixel position
+    int e2 = 2 * err;
+    if (e2 > -dy) {
+      err -= dy;
+      x_start += sx;
+    }
+    if (e2 < dx) {
+      err += dx;
+      y_start += sy;
+    }
+  }
+
+}
+
+
+float sign (float x0, float y0, float x1, float y1, float x2, float y2) {
+    return (x0 - x2) * (y1 - y2) - (x1 - x2) * (y0 - y2);
 }
 
 void SoftwareRendererImp::rasterize_triangle( float x0, float y0,
@@ -253,7 +294,57 @@ void SoftwareRendererImp::rasterize_triangle( float x0, float y0,
   // Task 3: 
   // Implement triangle rasterization
 
+  // Calculate the bounding box of the triangle
+  int min_x = (int) floor(std::min({x0, x1, x2}));
+  int max_x = (int) ceil(std::max({x0, x1, x2}));
+  int min_y = (int) floor(std::min({y0, y1, y2}));
+  int max_y = (int) ceil(std::max({y0, y1, y2}));
+
+  // Clamp the bounding box to the render target size
+  min_x = std::max(min_x, 0);
+  max_x = std::min(max_x, (int) target_w - 1);
+  min_y = std::max(min_y, 0);
+  max_y = std::min(max_y, (int) target_h - 1);
+
+  // Compute edge equations (Ax + By + C = 0) for each edge
+  // float edge1_A = y1 - y0, edge1_B = x0 - x1, edge1_C = x1 * y0 - x0 * y1;
+  // float edge2_A = y2 - y1, edge2_B = x1 - x2, edge2_C = x2 * y1 - x1 * y2;
+  // float edge3_A = y0 - y2, edge3_B = x2 - x0, edge3_C = x0 * y2 - x2 * y0;
+
+  // Iterate over pixels in the bounding box
+  for (int y = min_y; y <= max_y; y++) {
+    for (int x = min_x; x <= max_x; x++) {
+      // Calculate signed distances to edges
+      
+      //float w1 = edge1_A * x + edge1_B * y + edge1_C;
+      //float w2 = edge2_A * x + edge2_B * y + edge2_C;
+      //float w3 = edge3_A * x + edge3_B * y + edge3_C;
+
+      float w1 = sign(x, y, x0, y0, x1, y1);
+      float w2 = sign(x, y, x1, y1, x2, y2);
+      float w3 = sign(x, y, x2, y2, x0, y0);
+
+      bool has_neg = (w1 < 0) || (w2 < 0) || (w3 < 0);
+      bool has_pos = (w1 > 0) || (w2 > 0) || (w3 > 0);
+      
+      // Check if the pixel is inside the triangle
+      if (!(has_neg && has_pos)) {
+        rasterize_point(x, y, color);
+      }
+    }
+  }
+
 }
+
+/*
+void SoftwareRendererImp::rasterize_triangle( float x0, float y0,
+                                              float x1, float y1,
+                                              float x2, float y2,
+                                              Color color ) {
+  rasterize_line(x0, y0, x1, y1, color);
+  rasterize_line(x2, y2, x1, y1, color);
+}
+*/
 
 void SoftwareRendererImp::rasterize_image( float x0, float y0,
                                            float x1, float y1,
